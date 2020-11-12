@@ -14,21 +14,25 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { ContainerModule, decorate, injectable } from 'inversify';
 import { ApplicationPackage } from '@theia/application-package';
+import { ContainerModule, decorate, injectable } from 'inversify';
 import {
-    bindContributionProvider, MessageService, MessageClient, ConnectionHandler, JsonRpcConnectionHandler,
-    CommandService, commandServicePath, messageServicePath
+    bindContributionProvider,
+    CommandService, commandServicePath, ConnectionHandler, JsonRpcConnectionHandler, MessageClient, MessageService,
+    messageServicePath
 } from '../common';
-import { BackendApplication, BackendApplicationContribution, BackendApplicationCliContribution } from './backend-application';
-import { CliManager, CliContribution } from './cli';
-import { IPCConnectionProvider } from './messaging';
-import { ApplicationServerImpl } from './application-server';
-import { ApplicationServer, applicationPath } from '../common/application-protocol';
-import { EnvVariablesServer, envVariablesPath } from './../common/env-variables';
-import { EnvVariablesServerImpl } from './env-variables';
-import { ConnectionContainerModule } from './messaging/connection-container-module';
+import { applicationPath, ApplicationServer } from '../common/application-protocol';
 import { QuickPickService, quickPickServicePath } from '../common/quick-pick-service';
+import { envVariablesPath, EnvVariablesServer } from './../common/env-variables';
+import { ApplicationServerImpl } from './application-server';
+import { BackendApplication, BackendApplicationCliContribution, BackendApplicationContribution } from './backend-application';
+import { BackendApplicationHosts } from './backend-application-hosts';
+import { CliContribution, CliManager } from './cli';
+import { EnvVariablesServerImpl } from './env-variables';
+import { IPCConnectionProvider } from './messaging';
+import { ConnectionContainerModule } from './messaging/connection-container-module';
+import { WsOriginValidator } from './origin-validator';
+import { WsRequestValidator, WsRequestValidatorContribution } from './ws-request-validators';
 
 decorate(injectable(), ApplicationPackage);
 
@@ -49,6 +53,8 @@ export const backendApplicationModule = new ContainerModule(bind => {
     bind(ConnectionContainerModule).toConstantValue(commandConnectionModule);
     bind(ConnectionContainerModule).toConstantValue(messageConnectionModule);
     bind(ConnectionContainerModule).toConstantValue(quickPickConnectionModule);
+
+    bind(BackendApplicationHosts).toSelf().inSingletonScope();
 
     bind(CliManager).toSelf().inSingletonScope();
     bindContributionProvider(bind, CliContribution);
@@ -81,4 +87,9 @@ export const backendApplicationModule = new ContainerModule(bind => {
         const { projectPath } = container.get(BackendApplicationCliContribution);
         return new ApplicationPackage({ projectPath });
     }).inSingletonScope();
+
+    bind(WsRequestValidator).toSelf().inSingletonScope();
+    bindContributionProvider(bind, WsRequestValidatorContribution);
+    bind(WsOriginValidator).toSelf().inSingletonScope();
+    bind(WsRequestValidatorContribution).toService(WsOriginValidator);
 });

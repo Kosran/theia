@@ -14,15 +14,24 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { ContainerModule } from 'inversify';
-import { BackendApplicationContribution } from '../../node';
-import { WsRequestValidatorContribution } from '../../node/ws-request-validators';
-import { ElectronTokenBackendContribution } from './electron-token-backend-contribution';
-import { ElectronTokenValidator } from './electron-token-validator';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import { Deferred } from '@theia/core/lib/common/promise-util';
+import { inject, injectable, postConstruct } from 'inversify';
+import { MiniBrowserEndpoint } from '../common/mini-browser-endpoint';
 
-export default new ContainerModule((bind, unbind, isBound, rebind) => {
-    bind(ElectronTokenBackendContribution).toSelf().inSingletonScope();
-    bind(BackendApplicationContribution).toService(ElectronTokenBackendContribution);
-    bind(ElectronTokenValidator).toSelf().inSingletonScope();
-    bind(WsRequestValidatorContribution).toService(ElectronTokenValidator);
-});
+@injectable()
+export class MiniBrowserEnvironment {
+
+    protected readonly deferredHostPattern = new Deferred<string>();
+    readonly hostPattern = this.deferredHostPattern.promise;
+
+    @inject(EnvVariablesServer)
+    protected readonly environment: EnvVariablesServer;
+
+    @postConstruct()
+    protected postConstruct(): void {
+        this.environment.getValue(MiniBrowserEndpoint.HOST_PATTERN_ENV).then(envVar => {
+            this.deferredHostPattern.resolve(envVar?.value || MiniBrowserEndpoint.HOST_PATTERN_DEFAULT);
+        });
+    }
+}

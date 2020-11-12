@@ -14,16 +14,18 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import * as fs from 'fs-extra';
-import { lookup } from 'mime-types';
-import { injectable, inject, named } from 'inversify';
-import { Application, Request, Response } from 'express';
-import URI from '@theia/core/lib/common/uri';
-import { FileUri } from '@theia/core/lib/node/file-uri';
+const vhost = require('vhost');
+import express = require('express');
+import { ContributionProvider } from '@theia/core/lib/common/contribution-provider';
 import { ILogger } from '@theia/core/lib/common/logger';
 import { MaybePromise } from '@theia/core/lib/common/types';
-import { ContributionProvider } from '@theia/core/lib/common/contribution-provider';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
+import { FileUri } from '@theia/core/lib/node/file-uri';
+import { Application, Request, Response } from 'express';
+import * as fs from 'fs-extra';
+import { inject, injectable, named } from 'inversify';
+import { lookup } from 'mime-types';
+import { MiniBrowserEndpoint as MiniBrowserEndpointNS } from '../common/mini-browser-endpoint';
 import { MiniBrowserService } from '../common/mini-browser-service';
 
 /**
@@ -86,7 +88,9 @@ export class MiniBrowserEndpoint implements BackendApplicationContribution, Mini
     protected readonly handlers: Map<string, MiniBrowserEndpointHandler> = new Map();
 
     configure(app: Application): void {
-        app.get(`${MiniBrowserEndpoint.HANDLE_PATH}*`, async (request, response) => this.response(await this.getUri(request), response));
+        const miniBrowserApp = express();
+        miniBrowserApp.get(`${MiniBrowserEndpoint.HANDLE_PATH}*`, async (request, response) => this.response(await this.getUri(request), response));
+        app.use(vhost(this.getVirtualHostRegExp(), miniBrowserApp));
     }
 
     async onStart(): Promise<void> {
@@ -135,7 +139,7 @@ export class MiniBrowserEndpoint implements BackendApplicationContribution, Mini
 
     protected getUri(request: Request): MaybePromise<string> {
         const decodedPath = request.path.substr(MiniBrowserEndpoint.HANDLE_PATH.length);
-        return new URI(FileUri.create(decodedPath).toString(true)).toString(true);
+        return FileUri.create(decodedPath).toString(true);
     }
 
     protected async readContent(uri: string): Promise<FileStatWithContent> {
@@ -186,6 +190,13 @@ export class MiniBrowserEndpoint implements BackendApplicationContribution, Mini
         };
     }
 
+    protected getVirtualHostRegExp(): RegExp {
+        const pattern = process.env[MiniBrowserEndpointNS.HOST_PATTERN_ENV] ?? MiniBrowserEndpointNS.HOST_PATTERN_DEFAULT;
+        const vhostRe = pattern
+            .replace('.', '\\.')
+            .replace('{{hostname}}', '.+');
+        return new RegExp(vhostRe, 'i');
+    }
 }
 
 // See `EditorManager#canHandle`.

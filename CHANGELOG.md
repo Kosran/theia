@@ -4,7 +4,8 @@
 
 <a name="breaking_changes_1.8.0">[Breaking Changes:](#breaking_changes_1.8.0)</a>
 
-- [file-search] Deprecate dependency on `@theia/process` and replaced its usage by node's `child_process` api.
+- [file-search] Deprecated dependency on `@theia/process` and replaced its usage by node's `child_process` api.
+- [core] Deprecated `ElectronMessagingContribution`, token validation is now done in `ElectronTokenValidator` as a `WsRequestValidatorContribution`.
 
 ## v1.7.0 - 29/10/2020
 

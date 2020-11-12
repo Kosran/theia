@@ -14,24 +14,24 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import * as ws from 'ws';
-import * as url from 'url';
-import * as net from 'net';
 import * as http from 'http';
 import * as https from 'https';
-import { injectable, inject, named, postConstruct, interfaces, Container } from 'inversify';
+import { Container, inject, injectable, interfaces, named, postConstruct } from 'inversify';
+import * as net from 'net';
+import * as url from 'url';
 import { MessageConnection } from 'vscode-jsonrpc';
-import { createWebSocketConnection } from 'vscode-ws-jsonrpc/lib/socket/connection';
 import { IConnection } from 'vscode-ws-jsonrpc/lib/server/connection';
 import * as launch from 'vscode-ws-jsonrpc/lib/server/launch';
-import { ContributionProvider, ConnectionHandler, bindContributionProvider } from '../../common';
+import { createWebSocketConnection } from 'vscode-ws-jsonrpc/lib/socket/connection';
+import * as ws from 'ws';
+import { bindContributionProvider, ConnectionHandler, ContributionProvider } from '../../common';
 import { WebSocketChannel } from '../../common/messaging/web-socket-channel';
 import { BackendApplicationContribution } from '../backend-application';
-import { MessagingService, WebSocketChannelConnection } from './messaging-service';
-import { ConsoleLogger } from './logger';
 import { ConnectionContainerModule } from './connection-container-module';
-
+import { ConsoleLogger } from './logger';
+import { MessagingService, WebSocketChannelConnection } from './messaging-service';
 import Route = require('route-parser');
+import { WsRequestValidator } from '../ws-request-validators';
 
 export const MessagingContainer = Symbol('MessagingContainer');
 
@@ -46,6 +46,9 @@ export class MessagingContribution implements BackendApplicationContribution, Me
 
     @inject(ContributionProvider) @named(MessagingService.Contribution)
     protected readonly contributions: ContributionProvider<MessagingService.Contribution>;
+
+    @inject(WsRequestValidator)
+    protected readonly wsRequestValidator: WsRequestValidator;
 
     protected webSocketServer: ws.Server | undefined;
     protected readonly wsHandlers = new MessagingContribution.ConnectionHandlers<ws>();
@@ -115,8 +118,16 @@ export class MessagingContribution implements BackendApplicationContribution, Me
      * Route HTTP upgrade requests to the WebSocket server.
      */
     protected handleHttpUpgrade(request: http.IncomingMessage, socket: net.Socket, head: Buffer): void {
-        this.webSocketServer!.handleUpgrade(request, socket, head, client => {
-            this.webSocketServer!.emit('connection', client, request);
+        this.wsRequestValidator.allowWsRequest(request).then(allowed => {
+            if (allowed) {
+                this.webSocketServer!.handleUpgrade(request, socket, head, client => {
+                    this.webSocketServer!.emit('connection', client, request);
+                });
+            } else {
+                console.error(`refused a websocket connection: ${request.connection.remoteAddress}`);
+                socket.write('HTTP/1.1 403 Forbidden\n\n');
+                socket.destroy();
+            }
         });
     }
 

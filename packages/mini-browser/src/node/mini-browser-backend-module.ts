@@ -14,16 +14,20 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { ContainerModule } from 'inversify';
+import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/common';
 import { bindContributionProvider } from '@theia/core/lib/common/contribution-provider';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
-import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/common';
+import { WsRequestValidatorContribution } from '@theia/core/lib/node/ws-request-validators';
+import { ContainerModule } from 'inversify';
 import { MiniBrowserService, MiniBrowserServicePath } from '../common/mini-browser-service';
-import { MiniBrowserEndpoint, MiniBrowserEndpointHandler, HtmlHandler, ImageHandler, PdfHandler, SvgHandler } from './mini-browser-endpoint';
+import { HtmlHandler, ImageHandler, MiniBrowserEndpoint, MiniBrowserEndpointHandler, PdfHandler, SvgHandler } from './mini-browser-endpoint';
+import { MiniBrowserWsRequestValidator } from './mini-browser-ws-validator';
 
 export default new ContainerModule(bind => {
     bind(MiniBrowserEndpoint).toSelf().inSingletonScope();
     bind(BackendApplicationContribution).toService(MiniBrowserEndpoint);
+    bind(MiniBrowserWsRequestValidator).toSelf().inSingletonScope();
+    bind(WsRequestValidatorContribution).toService(MiniBrowserWsRequestValidator);
     bind(MiniBrowserService).toService(MiniBrowserEndpoint);
     bind(ConnectionHandler).toDynamicValue(context => new JsonRpcConnectionHandler(MiniBrowserServicePath, () => context.container.get(MiniBrowserService))).inSingletonScope();
     bindContributionProvider(bind, MiniBrowserEndpointHandler);

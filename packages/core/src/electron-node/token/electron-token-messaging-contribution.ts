@@ -14,14 +14,15 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import * as net from 'net';
 import * as http from 'http';
-import { injectable, inject } from 'inversify';
+import { inject, injectable } from 'inversify';
+import * as net from 'net';
 import { MessagingContribution } from '../../node/messaging/messaging-contribution';
 import { ElectronTokenValidator } from './electron-token-validator';
 
 /**
  * Override the browser MessagingContribution class to refuse connections that do not include a specific token.
+ * @deprecated since 1.8.0
  */
 @injectable()
 export class ElectronMessagingContribution extends MessagingContribution {

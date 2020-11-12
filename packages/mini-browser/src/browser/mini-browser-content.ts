@@ -14,24 +14,24 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import * as PDFObject from 'pdfobject';
-import { inject, injectable, postConstruct } from 'inversify';
 import { Message } from '@phosphor/messaging';
-import URI from '@theia/core/lib/common/uri';
-import { ILogger } from '@theia/core/lib/common/logger';
-import { Emitter } from '@theia/core/lib/common/event';
+import { Key, KeyCode, parseCssTime } from '@theia/core/lib/browser';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
-import { WindowService } from '@theia/core/lib/browser/window/window-service';
-import { parseCssTime, Key, KeyCode } from '@theia/core/lib/browser';
-import { DisposableCollection, Disposable } from '@theia/core/lib/common/disposable';
-import { BaseWidget, addEventListener } from '@theia/core/lib/browser/widgets/widget';
-import { LocationMapperService } from './location-mapper-service';
 import { ApplicationShellMouseTracker } from '@theia/core/lib/browser/shell/application-shell-mouse-tracker';
-
-import debounce = require('lodash.debounce');
-import { MiniBrowserContentStyle } from './mini-browser-content-style';
+import { addEventListener, BaseWidget } from '@theia/core/lib/browser/widgets/widget';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
+import { Emitter } from '@theia/core/lib/common/event';
+import { ILogger } from '@theia/core/lib/common/logger';
+import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileChangeType } from '@theia/filesystem/lib/common/files';
+import { inject, injectable, postConstruct } from 'inversify';
+import * as PDFObject from 'pdfobject';
+import { LocationMapperService } from './location-mapper-service';
+import { MiniBrowserContentStyle } from './mini-browser-content-style';
+import { MiniBrowserEnvironment } from './mini-browser-environment';
+import debounce = require('lodash.debounce');
 
 /**
  * Initializer properties for the embedded browser widget.
@@ -179,6 +179,9 @@ export class MiniBrowserContent extends BaseWidget {
 
     @inject(FileService)
     protected readonly fileService: FileService;
+
+    @inject(MiniBrowserEnvironment)
+    protected readonly miniBrowserEnvironment: MiniBrowserEnvironment;
 
     protected readonly submitInputEmitter = new Emitter<string>();
     protected readonly navigateBackEmitter = new Emitter<void>();
@@ -511,8 +514,14 @@ export class MiniBrowserContent extends BaseWidget {
         return element;
     }
 
-    protected mapLocation(location: string): Promise<string> {
-        return this.locationMapper.map(location);
+    protected async mapLocation(location: string): Promise<string> {
+        const [hostPattern, mappedLocation] = await Promise.all([
+            this.miniBrowserEnvironment.hostPattern,
+            this.locationMapper.map(location),
+        ]);
+        const url = new URL(mappedLocation);
+        url.host = hostPattern.replace('{{hostname}}', url.host);
+        return url.toString();
     }
 
     protected setInput(value: string): void {
