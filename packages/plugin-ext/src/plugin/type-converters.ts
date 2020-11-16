@@ -705,6 +705,9 @@ export function fromTask(task: theia.Task): TaskDto | undefined {
     const taskDto = {} as TaskDto;
     taskDto.label = task.name;
     taskDto.source = task.source;
+    if (task.problemMatchers) {
+        taskDto.problemMatcher = task.problemMatchers;
+    }
     if ('detail' in task) {
         taskDto.detail = (task as theia.Task2).detail;
     }
